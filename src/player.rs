@@ -1,6 +1,6 @@
 use crate::card::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Player {
     name: String,
     cards: Vec<Card>,

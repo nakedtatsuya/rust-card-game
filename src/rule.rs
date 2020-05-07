@@ -5,55 +5,54 @@ use crate::player::*;
 
 trait Rule {}
 
-pub struct WithoutBubbling;
+pub struct WithoutBubbling {
+    active_players: Vec<Player>,
+    deck: Deck,
+    garbage: Vec<Card>,
+    finished_players: Vec<Player>,
+}
 
 impl WithoutBubbling {
-    pub fn init(players: &mut Vec<&mut Player>) {
-        let mut deck = Deck::new(JokerCard::One);
-        deck.get_cards_mut().shuffle();
-        for i in 0..deck.get_cards().len() {
-            let index = i % players.len();
-            let cards = players[index].get_cards_mut();
-            match deck.drow() {
-                Some(card) => match WithoutBubbling::check_pair(cards, &card) {
-                    Some(target) => &WithoutBubbling::throw_away_pair(cards, &target),
-                    None => &players[index].get_cards_mut().push(card),
-                },
-                None => &(),
+
+    pub fn new(active_players: Vec<Player>) -> Self {
+        WithoutBubbling {
+            active_players,
+            deck: Deck::new(JokerCard::One),
+            garbage: Default::default(),
+            finished_players:Default::default(),
+        }
+    }
+
+    pub fn init(&mut self) {
+        self.deck.get_cards_mut().shuffle();
+        for i in 0..self.deck.get_cards().len() {
+            let index = i % self.active_players.len();
+            match self.deck.drow() {
+                Some(drow_card) => self.throw_away_pair(index, drow_card),
+                None => (),
             };
         }
-
-        // 計算量は少ないけどデッキの所有権が不自然。まとめてpop()できるメソッドあるのか？
-        // let mut cards: Vec<Vec<Card>> = Vec::new();
-        // let split_point = deck.get_cards().len() / players.len();
-        // let surplus = deck.get_cards().len() % players.len();
-        // let mut start_point = 0;
-        // for i in 0..players.len() {
-        //     let mut end_point = start_point+split_point;
-        //     if i < surplus {
-        //         end_point += 1;
-        //     }
-        //     let mut split_cards: Vec<Card> = deck.get_cards_mut()[start_point..end_point].to_vec();
-        //     &players[i].get_cards_mut().append(&mut split_cards);
-        //     cards.push(split_cards);
-        //     start_point += split_point;
-        // }
     }
-
-    fn check_pair(cards: &Vec<Card>, new_card: &Card) -> Option<Card> {
-        let mut result = None;
-        for card in cards.iter() {
-            if card.is_equal_number(new_card) {
-                let c1 = Card::new(card.get_number(), card.get_mark());
-                result = Some(c1);
+    
+    fn throw_away_pair(&mut self, player_index: usize, drow_card: Card) {
+        let cards = self.active_players[player_index].get_cards_mut();
+        if cards.check_pair(&drow_card) {
+            match cards.throw_away_pair(drow_card) {
+                Some((c1, c2)) => {
+                    self.pair_to_garbage((c1, c2));
+                },
+                None => (),       
             }
+        } else {
+            cards.push(drow_card);
         }
-        result
     }
 
-    fn throw_away_pair(cards: &mut Vec<Card>, target: &Card) {
-        cards.retain(|card| card != target);
+    fn pair_to_garbage(&mut self, set_cards: (Card, Card)) {
+        let (c1, c2) = set_cards;
+        self.garbage.append(&mut vec![c1, c2]);
     }
+    
 }
 
 #[cfg(test)]
@@ -64,18 +63,35 @@ mod tests {
     use crate::Mark;
 
     #[test]
+    fn new_game() {
+        let player1 = Player::new("yugi");
+        let player2 = Player::new("zyounochi");
+        let player3 = Player::new("marik");
+        let players = vec![player1, player2, player3];
+        let game_master = WithoutBubbling::new(players);
+        assert_eq!(game_master.active_players.len(), 3);
+        assert_eq!(game_master.garbage.len(), 0);
+        assert_eq!(game_master.finished_players.len(), 0);
+        assert_eq!(game_master.deck.get_cards().len(), 53);
+    }
+
+    #[test]
     fn without_bubbling_game_setup() {
-        let mut player1 = Player::new("yugi");
-        let mut player2 = Player::new("zyounochi");
-        let mut player3 = Player::new("marik");
-        let mut players = vec![&mut player1, &mut player2, &mut player3];
-        WithoutBubbling::init(&mut players);
-        assert!(!is_double_pair(player1.get_cards()));
-        assert!(!is_double_pair(player2.get_cards()));
-        assert!(!is_double_pair(player3.get_cards()));
-        assert!(player1.get_cards().len() <= 14);
-        assert!(player2.get_cards().len() <= 14);
-        assert!(player3.get_cards().len() <= 14);
+        let player1 = Player::new("yugi");
+        let player2 = Player::new("zyounochi");
+        let player3 = Player::new("marik");
+        let players = vec![player1, player2, player3];
+
+        let mut game_master = WithoutBubbling::new(players);
+
+        game_master.init();    
+        assert_eq!(game_master.deck.get_cards().len(), 0);
+        assert!(!is_double_pair(game_master.active_players[0].get_cards()));
+        assert!(!is_double_pair(game_master.active_players[1].get_cards()));
+        assert!(!is_double_pair(game_master.active_players[2].get_cards()));
+        assert!(game_master.active_players[0].get_cards().len() <= 14);
+        assert!(game_master.active_players[1].get_cards().len() <= 14);
+        assert!(game_master.active_players[2].get_cards().len() <= 14);
     }
 
     fn is_double_pair(cards: &Vec<Card>) -> bool {
@@ -113,7 +129,7 @@ mod tests {
         let card3 = Card::new(3, &Mark::Clover);
         let cards = vec![card1, card2, card3];
         let drow_card = Card::new(2, &Mark::Diamond);
-        assert_eq!(WithoutBubbling::check_pair(&cards, &drow_card), Some(card2));
+        assert_eq!(cards.check_pair(&drow_card), true);
     }
 
     #[test]
@@ -123,7 +139,7 @@ mod tests {
         let card3 = Card::new(3, &Mark::Clover);
         let cards = vec![card1, card2, card3];
         let drow_card = Card::new(4, &Mark::Diamond);
-        assert_eq!(WithoutBubbling::check_pair(&cards, &drow_card), None);
+        assert_eq!(cards.check_pair(&drow_card), false);
     }
 
     #[test]
@@ -131,9 +147,19 @@ mod tests {
         let card1 = Card::new(1, &Mark::Clover);
         let card2 = Card::new(2, &Mark::Clover);
         let card3 = Card::new(3, &Mark::Clover);
-        let target_card = Card::new(2, &Mark::Clover);
-        let mut cards = vec![card1, card2, card3];
-        WithoutBubbling::throw_away_pair(&mut cards, &target_card);
-        assert_eq!(cards, vec![card1, card3]);
+        let target_card = Card::new(2, &Mark::Diamond);
+        let cards = vec![card1, card2, card3];
+
+
+        let player1 = Player::new("yugi");
+        let players = vec![player1];
+        let mut game_master = WithoutBubbling::new(players);
+        game_master.active_players[0].set_cards(cards);
+
+
+        game_master.throw_away_pair(0, target_card);
+        assert_eq!(game_master.active_players[0].get_cards(), &vec![card1, card3]);
+        assert_eq!(game_master.garbage, vec![card2, target_card]);
+
     }
 }

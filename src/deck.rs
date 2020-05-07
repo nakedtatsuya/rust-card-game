@@ -7,9 +7,11 @@ pub struct Deck {
 }
 
 impl Deck {
-    pub fn new(is_joker: JokerCard) -> Self {
-        let cards = Deck::deck_init(is_joker);
-        Deck { cards }
+    pub fn new(joker: JokerCard) -> Self {
+        let cards = Deck::deck_init(joker);
+        Deck { 
+            cards
+        }
     }
 
     pub fn drow(&mut self) -> Option<Card> {
@@ -43,7 +45,7 @@ impl Deck {
     fn deck_init(is_joker: JokerCard) -> Vec<Card> {
         let mut cards: Vec<Card> = vec![];
         for mark in Mark::iterator() {
-            cards.append(&mut Deck::make_mark_cards(mark));
+            cards.append(&mut Deck::make_mark_set(mark));
         }
         match is_joker {
             JokerCard::Zero => cards,
@@ -59,7 +61,7 @@ impl Deck {
         }
     }
 
-    fn make_mark_cards(mark: &'static Mark) -> Vec<Card> {
+    fn make_mark_set(mark: &'static Mark) -> Vec<Card> {
         let mut cards: Vec<Card> = vec![];
         for i in 1..14 {
             let card = Card::new(i, mark);

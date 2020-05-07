@@ -8,9 +8,12 @@ fn main() {
     let mut deck = Deck::new(JokerCard::Zero);
     deck.get_cards_mut().shuffle();
 
-    let mut player1 = Player::new("yugi");
-    let mut player2 = Player::new("zyounochi");
-    let mut player3 = Player::new("marik");
-    let mut players = vec![&mut player1, &mut player2, &mut player3];
-    WithoutBubbling::init(&mut players);
+    let player1 = Player::new("yugi");
+    let player2 = Player::new("zyounochi");
+    let player3 = Player::new("marik");
+    let players = vec![player1, player2, player3];
+
+    let mut game_master = WithoutBubbling::new(players);
+
+    game_master.init();    
 }

@@ -17,6 +17,10 @@ pub trait CardList {
     fn shuffle(&mut self);
 
     fn reverse_direction(&mut self);
+
+    fn throw_away_pair(&mut self, target: Card) -> Option<(Card, Card)>;
+
+    fn check_pair(&self, new_card: &Card) -> bool;
 }
 
 impl CardList for Vec<Card> {
@@ -56,6 +60,31 @@ impl CardList for Vec<Card> {
         for i in 0..self.len() {
             self[i].reverse_direction();
         };
+    }
+
+    fn throw_away_pair(&mut self, drow_card: Card) -> Option<(Card, Card)> {
+
+        let mut set: Option<(Card, Card)> = None;
+        self.retain(|&card| {
+            if card.get_number() == drow_card.get_number() {
+                set = Some((card, drow_card));
+                false
+            } else {
+                true
+            }
+        });
+        set
+    }
+
+    fn check_pair(&self, new_card: &Card) -> bool {
+        let mut result = false;
+        for card in self.iter() {
+            if card.is_equal_number(new_card) {
+                result = true;
+                break;
+            }
+        }
+        result
     }
 }
 
@@ -103,11 +132,24 @@ impl Card {
 mod tests {
     use super::Card;
     use super::Mark;
+    use super::CardList;
 
     #[test]
     fn make_card() {
         let card = Card::new(1, &Mark::Clover);
         assert_eq!(card.get_number(), 1);
         assert_eq!(card.get_mark(), &Mark::Clover);
+    }
+
+    #[test]
+    fn check_pair_number() {
+        let card1 = Card::new(1, &Mark::Clover);
+        let card2 = Card::new(2, &Mark::Clover);
+        let card3 = Card::new(3, &Mark::Clover);
+        let drow_card = Card::new(2, &Mark::Clover);
+        let mut cards = vec![card1,card2,card3];
+
+        assert_eq!(cards.throw_away_pair(drow_card), Some((card2, drow_card)));
+        assert_eq!(cards, vec![card1, card3]);
     }
 }
