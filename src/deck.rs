@@ -9,9 +9,7 @@ pub struct Deck {
 impl Deck {
     pub fn new(joker: JokerCard) -> Self {
         let cards = Deck::deck_init(joker);
-        Deck { 
-            cards
-        }
+        Deck { cards }
     }
 
     pub fn drow(&mut self) -> Option<Card> {
@@ -76,7 +74,7 @@ mod tests {
     use super::Deck;
     use crate::card::*;
     use crate::utils::is_shuffle;
-    use crate::{JokerCard, Mark, CardDerection};
+    use crate::{CardDerection, JokerCard, Mark};
 
     #[test]
     fn make_deck() {
@@ -131,5 +129,4 @@ mod tests {
         assert_eq!(deck.get_cards(), &vec![card1, card2, card3]);
         assert!(deck.get_cards().check_cards_direction(CardDerection::Back));
     }
-
 }

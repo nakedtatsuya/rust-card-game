@@ -9,12 +9,11 @@ pub struct Card {
 }
 
 pub trait CardList {
-
     fn is_double_pair(&self) -> bool;
 
     fn check_cards_direction(&self, direction: CardDerection) -> bool;
 
-    fn shuffle(&mut self);
+    // fn shuffle(&mut self);
 
     fn reverse_direction(&mut self);
 
@@ -23,8 +22,19 @@ pub trait CardList {
     fn check_pair(&self, new_card: &Card) -> bool;
 }
 
+pub trait Shuffle {
+    fn shuffle(&mut self);
+}
+
+impl<T> Shuffle for Vec<T> {
+    fn shuffle(&mut self) {
+        let mut rng = rand::thread_rng();
+        self.as_mut_slice().shuffle(&mut rng);
+    }
+}
+
 impl CardList for Vec<Card> {
-    fn is_double_pair(&self) -> bool{
+    fn is_double_pair(&self) -> bool {
         let mut result = false;
         for i in 0..self.len() {
             for x in (i + 1)..self.len() {
@@ -38,7 +48,7 @@ impl CardList for Vec<Card> {
             }
         }
         result
-    } 
+    }
 
     fn check_cards_direction(&self, direction: CardDerection) -> bool {
         let mut result = true;
@@ -50,20 +60,19 @@ impl CardList for Vec<Card> {
         result
     }
 
-    fn shuffle(&mut self) {
-        let mut rng = rand::thread_rng();
-        self.as_mut_slice().shuffle(&mut rng);
-    }
+    // fn shuffle(&mut self) {
+    //     let mut rng = rand::thread_rng();
+    //     self.as_mut_slice().shuffle(&mut rng);
+    // }
 
     fn reverse_direction(&mut self) {
         self.reverse();
         for i in 0..self.len() {
             self[i].reverse_direction();
-        };
+        }
     }
 
     fn throw_away_pair(&mut self, drow_card: Card) -> Option<(Card, Card)> {
-
         let mut set: Option<(Card, Card)> = None;
         self.retain(|&card| {
             if card.get_number() == drow_card.get_number() {
@@ -88,8 +97,6 @@ impl CardList for Vec<Card> {
     }
 }
 
-
-
 impl Card {
     pub fn new(number: u8, mark: &'static Mark) -> Self {
         Card {
@@ -106,7 +113,6 @@ impl Card {
     pub fn get_direction(&self) -> CardDerection {
         self.direction
     }
-
 
     pub fn set_direction(&mut self, direction: CardDerection) {
         self.direction = direction;
@@ -131,8 +137,8 @@ impl Card {
 #[cfg(test)]
 mod tests {
     use super::Card;
-    use super::Mark;
     use super::CardList;
+    use super::Mark;
 
     #[test]
     fn make_card() {
@@ -147,7 +153,7 @@ mod tests {
         let card2 = Card::new(2, &Mark::Clover);
         let card3 = Card::new(3, &Mark::Clover);
         let drow_card = Card::new(2, &Mark::Clover);
-        let mut cards = vec![card1,card2,card3];
+        let mut cards = vec![card1, card2, card3];
 
         assert_eq!(cards.throw_away_pair(drow_card), Some((card2, drow_card)));
         assert_eq!(cards, vec![card1, card3]);
