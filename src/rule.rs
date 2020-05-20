@@ -2,6 +2,8 @@ use super::{CardDerection, JokerCard};
 use crate::card::*;
 use crate::deck::*;
 use crate::player::*;
+use std::io::{self, BufRead, Write};
+use crate::utils::*;
 
 trait Rule {}
 
@@ -33,36 +35,43 @@ impl WithoutBubbling {
             println!("{}番目は{}さん", i + 1, player.get_name());
         }
 
-        let mut current_player = &self.active_players[0];
+        let mut current_player_index = 0;
 
         // playerが２人以上なら続行
         while self.is_game_continue() {
-            let prev_player = match self.prev_player(&current_player) {
+            let prev_player_index = match self.prev_player_index(current_player_index) {
                 Some(player) => player,
-                None => current_player,
+                None => current_player_index,
             };
 
-            println!("{}さんのターンです。", current_player.get_name());
-            let choice_list = current_player.choice_list();
+            println!("{}さんのターンです。", self.active_players[current_player_index].get_name());
+            let choice_list = self.active_players[current_player_index].choice_list();
 
             // prev playerからカードを選択
-            println!("{}さんからカードを取ってください. ", prev_player.get_name());
-            println!("選択肢は{}です ", choice_list.join(", "));
+            println!("{}さんからカードを取ってください. ", self.active_players[prev_player_index].get_name());
 
             // 選択肢から入力
 
-
+            let answer = self.choice(&choice_list);
             // prev_playerから選択されたカードをremove
-
+            let remove_card = self.active_players[prev_player_index].get_cards_mut().remove(answer);
 
             // current_playerは加えたカードと同じナンバーのカードがあれば捨てる
+            self.active_players[current_player_index].get_cards_mut().throw_away_pair(remove_card);
+
+            match self.active_players[current_player_index].throw_away_pair(remove_card) {
+                Some((c1, c2)) => self.pair_to_garbage((c1, c2)),
+                None => self.active_players[current_player_index].drow(remove_card),
+            }
 
             // カードがゼロ枚のplayerは上がり
 
+
+
             // 次の人のターン(current_player=next_player)
-            current_player = match self.next_player(&current_player) {
+            current_player_index = match self.next_player_index(current_player_index) {
                 Some(player) => player,
-                None => current_player,
+                None => current_player_index,
             };
 
             break;
@@ -71,6 +80,43 @@ impl WithoutBubbling {
         // 勝敗
     }
 
+    fn check_choice(&self, choice_list: &Vec<String>, choice: &String) -> bool {
+        let mut valid = false;
+        for item in choice_list.iter() {
+            if choice == item {
+                valid = true;
+                break;
+            }
+        }
+        valid
+    }
+
+    fn choice(&self, choice_list: &Vec<String>) -> usize {
+        let mut answer;
+        loop {
+            println!("選択肢は{}です ", choice_list.join(", "));
+            answer = self.choice_input();
+            let valid = self.check_choice(choice_list, &answer);
+            if !valid {
+                println!("入力値が正しくありません: {}", &answer);
+                continue;
+            }
+            break;
+        }
+        answer.parse().unwrap()
+    }
+
+    fn choice_input(&self) -> String {
+        let stdio = io::stdin();
+        let input = stdio.lock();
+        let output = io::stdout();
+        let question = format!("Let's choice");
+        let mut answer = prompt(input, output, question);
+        answer.retain(|s| s != '\n');
+        answer
+    }
+
+    // ダブリあれば捨てる、なければドローを汎用化できそう
     fn hand_out_cards(&mut self) {
         for i in 0..self.deck.get_cards().len() {
             let index = i % self.active_players.len();
@@ -86,48 +132,33 @@ impl WithoutBubbling {
 
     pub fn pair_to_garbage(&mut self, set_cards: (Card, Card)) {
         let (mut c1, mut c2) = set_cards;
+        // println!("{}の{}と{}の{}を捨てました", c1);
         c1.set_direction(CardDerection::Front);
         c2.set_direction(CardDerection::Front);
         self.garbage.append(&mut vec![c1, c2]);
     }
 
-    fn next_player(&self, player: &Player) -> Option<&Player> {
-        if self.check_exist_player(player) {
-            let mut current_index = 0;
-            for (index, elem) in self.active_players.iter().enumerate() {
-                if elem == player {
-                    current_index = index;
-                    break;
-                }
+    fn next_player_index(&self, index: usize) -> Option<usize> {
+        if self.check_exist_player_index(index) {
+            // defaultはlast index
+            let mut next_index = index + 1;
+            if index == self.active_players.len() - 1 {
+                next_index = 0;
             }
-
-            let mut next_index = 0;
-            if current_index != self.active_players.len() - 1 {
-                next_index = current_index + 1;
-            }
-
-            self.active_players.get(next_index)
+            Some(next_index)
         } else {
             None
         }
     }
 
-    fn prev_player(&self, player: &Player) -> Option<&Player> {
-        if self.check_exist_player(player) {
-            let mut current_index = 0;
-            for (index, elem) in self.active_players.iter().enumerate() {
-                if elem == player {
-                    current_index = index;
-                    break;
-                }
+    fn prev_player_index(&self, index: usize) -> Option<usize> {
+        if self.check_exist_player_index(index) {
+            // defaultはlast index
+            let mut prev_index = self.active_players.len() - 1;
+            if index != 0 {
+                prev_index = index - 1;
             }
-
-            let mut next_index = self.active_players.len() - 1;
-            if current_index != 0 {
-                next_index = current_index - 1;
-            }
-
-            self.active_players.get(next_index)
+            Some(prev_index)
         } else {
             None
         }
@@ -135,6 +166,10 @@ impl WithoutBubbling {
 
     fn check_exist_player(&self, player: &Player) -> bool {
         self.active_players.contains(player)
+    }
+
+    fn check_exist_player_index(&self, n: usize) -> bool {
+        n < self.active_players.len()
     }
 
     fn is_game_continue(&self) -> bool {
@@ -167,23 +202,26 @@ mod tests {
         assert_eq!(game_master.deck.get_cards().len(), 53);
     }
 
-    #[test]
-    fn without_bubbling_game_setup() {
-        let players = vec![
-            Player::new("yugi"),
-            Player::new("zyounochi"),
-            Player::new("marik"),
-        ];
-        let mut game_master = WithoutBubbling::new(players);
-        game_master.init();
-        assert_eq!(game_master.deck.get_cards().len(), 0);
-        assert!(!game_master.active_players[0].get_cards().is_double_pair());
-        assert!(!game_master.active_players[1].get_cards().is_double_pair());
-        assert!(!game_master.active_players[2].get_cards().is_double_pair());
-        assert!(game_master.active_players[0].get_cards().len() <= 14);
-        assert!(game_master.active_players[1].get_cards().len() <= 14);
-        assert!(game_master.active_players[2].get_cards().len() <= 14);
-    }
+    // テスト単位分解する
+    // 1, Playerにランダムにデッキのカードを配る
+    // 2, リストからのペアの削除
+    // #[test]
+    // fn without_bubbling_game_setup() {
+    //     let players = vec![
+    //         Player::new("yugi"),
+    //         Player::new("zyounochi"),
+    //         Player::new("marik"),
+    //     ];
+    //     let mut game_master = WithoutBubbling::new(players);
+    //     game_master.init();
+    //     assert_eq!(game_master.deck.get_cards().len(), 0);
+    //     assert!(!game_master.active_players[0].get_cards().is_double_pair());
+    //     assert!(!game_master.active_players[1].get_cards().is_double_pair());
+    //     assert!(!game_master.active_players[2].get_cards().is_double_pair());
+    //     assert!(game_master.active_players[0].get_cards().len() <= 14);
+    //     assert!(game_master.active_players[1].get_cards().len() <= 14);
+    //     assert!(game_master.active_players[2].get_cards().len() <= 14);
+    // }
 
     #[test]
     fn double_checker_by_list() {
@@ -258,12 +296,8 @@ mod tests {
             Player::new("marik"),
         ];
         let game_master = WithoutBubbling::new(players);
-        let player1 = Player::new("yugi");
-        let player2 = Player::new("zyounochi");
-        let player3 = Player::new("marik");
-        assert_eq!(game_master.next_player(&player1), Some(&player2));
-        assert_eq!(game_master.next_player(&player3), Some(&player1));
-        let none_player = Player::new("none");
-        assert_eq!(game_master.next_player(&none_player), None);
+        assert_eq!(game_master.next_player_index(0), Some(1));
+        assert_eq!(game_master.next_player_index(2), Some(0));
+        assert_eq!(game_master.next_player_index(4), None);
     }
 }

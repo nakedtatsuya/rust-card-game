@@ -60,11 +60,6 @@ impl CardList for Vec<Card> {
         result
     }
 
-    // fn shuffle(&mut self) {
-    //     let mut rng = rand::thread_rng();
-    //     self.as_mut_slice().shuffle(&mut rng);
-    // }
-
     fn reverse_direction(&mut self) {
         self.reverse();
         for i in 0..self.len() {
@@ -96,6 +91,7 @@ impl CardList for Vec<Card> {
         result
     }
 }
+
 
 impl Card {
     pub fn new(number: u8, mark: &'static Mark) -> Self {
