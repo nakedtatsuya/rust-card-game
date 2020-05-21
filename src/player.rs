@@ -4,7 +4,7 @@ use crate::utils::*;
 
 use std::io::{self, BufRead, Write};
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
+#[derive(Debug, Clone, Ord, Eq, PartialEq, PartialOrd, Default)]
 pub struct Player {
     name: String,
     cards: Vec<Card>,
@@ -41,14 +41,14 @@ impl Player {
     }
 
     pub fn throw_away_pair(&mut self, drow_card: Card) -> Option<(Card, Card)> {
-        match self.get_cards_mut().throw_away_pair(drow_card) {
+        match self.cards.throw_away_pair(drow_card) {
             Some((c1, c2)) => Some((c1, c2)),
             None => None,
         }
     }
 
     pub fn drow(&mut self, drow_card: Card) {
-        self.get_cards_mut().push(drow_card);
+        self.cards.push(drow_card);
     }
 
     fn input_player_name<R, W>(reader: R, writer: W, question: impl Into<String>) -> String

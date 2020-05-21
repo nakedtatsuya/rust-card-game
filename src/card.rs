@@ -128,6 +128,20 @@ impl Card {
     pub fn is_equal_number(&self, other: &Self) -> bool {
         self.number == other.number
     }
+
+    /// let card = Card::new(1, &Mark::Clover);
+    /// assert_eq!(card.get_info(), "Cloverの1");
+    /// 
+    /// let joker = Card::new(1, &Mark::Joker);
+    /// assert_eq!(joker.get_info(), "Joker");
+    pub fn get_info(&self) -> String {
+
+        if self.mark == &Mark::Joker {
+            return String::from("Joker")
+        }
+
+        format!("{:?}の{}", Mark::Clover, self.number)
+    }
 }
 
 #[cfg(test)]
@@ -153,5 +167,15 @@ mod tests {
 
         assert_eq!(cards.throw_away_pair(drow_card), Some((card2, drow_card)));
         assert_eq!(cards, vec![card1, card3]);
+    }
+
+
+    #[test]
+    fn get_card_info_string() {
+        let card = Card::new(1, &Mark::Clover);
+        let joker = Card::new(1, &Mark::Joker);
+
+        assert_eq!(card.get_info(), "Cloverの1");
+        assert_eq!(joker.get_info(), "Joker");
     }
 }

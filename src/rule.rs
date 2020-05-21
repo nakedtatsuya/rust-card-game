@@ -39,6 +39,8 @@ impl WithoutBubbling {
 
         // playerが２人以上なら続行
         while self.is_game_continue() {
+            println!("＝＝＝＝＝＝＝＝＝＝＝＝ターンスタート");
+
             let prev_player_index = match self.prev_player_index(current_player_index) {
                 Some(player) => player,
                 None => current_player_index,
@@ -46,35 +48,41 @@ impl WithoutBubbling {
 
             println!("{}さんのターンです。", self.active_players[current_player_index].get_name());
             let choice_list = self.active_players[current_player_index].choice_list();
+            println!("手持ちカードは{:?}", self.active_players[current_player_index].get_cards());
 
             // prev playerからカードを選択
             println!("{}さんからカードを取ってください. ", self.active_players[prev_player_index].get_name());
 
             // 選択肢から入力
+            println!("=======================");
 
             let answer = self.choice(&choice_list);
             // prev_playerから選択されたカードをremove
+            // ここでバグがある
             let remove_card = self.active_players[prev_player_index].get_cards_mut().remove(answer);
 
-            // current_playerは加えたカードと同じナンバーのカードがあれば捨てる
-            self.active_players[current_player_index].get_cards_mut().throw_away_pair(remove_card);
+            println!("引いたカードは{:?}", remove_card);
 
+            // current_playerは加えたカードと同じナンバーのカードがあれば捨てる
             match self.active_players[current_player_index].throw_away_pair(remove_card) {
                 Some((c1, c2)) => self.pair_to_garbage((c1, c2)),
                 None => self.active_players[current_player_index].drow(remove_card),
             }
 
             // カードがゼロ枚のplayerは上がり
+            self.move_finished_players();
 
 
+            println!("残りのPlayerは{}人です", self.active_players.len());
 
             // 次の人のターン(current_player=next_player)
             current_player_index = match self.next_player_index(current_player_index) {
                 Some(player) => player,
                 None => current_player_index,
             };
+            println!("＝＝＝＝＝＝＝＝＝＝＝＝ターン終了");
 
-            break;
+            // break;
         }
 
         // 勝敗
@@ -132,11 +140,13 @@ impl WithoutBubbling {
 
     pub fn pair_to_garbage(&mut self, set_cards: (Card, Card)) {
         let (mut c1, mut c2) = set_cards;
-        // println!("{}の{}と{}の{}を捨てました", c1);
+        println!("{}と{}を捨てました", c1.get_info(), c2.get_info());
         c1.set_direction(CardDerection::Front);
         c2.set_direction(CardDerection::Front);
         self.garbage.append(&mut vec![c1, c2]);
     }
+
+
 
     fn next_player_index(&self, index: usize) -> Option<usize> {
         if self.check_exist_player_index(index) {
@@ -178,6 +188,33 @@ impl WithoutBubbling {
 
     pub fn get_active_players(&self) -> &Vec<Player> {
         &self.active_players
+    }
+
+    pub fn get_active_players_mut(&mut self) -> &mut Vec<Player> {
+        &mut self.active_players
+    }
+
+    pub fn get_finished_players(&self) -> &Vec<Player> {
+        &self.finished_players
+    }
+
+    fn move_finished_players(&mut self) -> &Vec<Player> {
+        // card check
+        let mut finised_players: Vec<Player> = vec![];
+        self.active_players.retain(|player| {
+            if player.get_cards().len() == 0 {
+                // finishに移動
+                println!("{}があがりました", player.get_name());
+                finised_players.push(Player::new(player.get_name()));
+                false
+            } else {
+                true
+            }
+        });
+
+        self.finished_players.append(&mut finised_players);
+
+        &self.finished_players
     }
 }
 
@@ -295,9 +332,31 @@ mod tests {
             Player::new("zyounochi"),
             Player::new("marik"),
         ];
-        let game_master = WithoutBubbling::new(players);
+        let mut game_master = WithoutBubbling::new(players);
         assert_eq!(game_master.next_player_index(0), Some(1));
         assert_eq!(game_master.next_player_index(2), Some(0));
         assert_eq!(game_master.next_player_index(4), None);
     }
+
+    #[test]
+    fn to_finished_player_from_active_players() {
+        let players = vec![
+            Player::new("yugi"),
+            Player::new("zyounochi"),
+            Player::new("marik"),
+        ];
+
+        let mut game_master = WithoutBubbling::new(players);
+        
+        game_master.get_active_players_mut()[2].get_cards_mut().push(Card::new(1, &Mark::Clover));
+
+        assert_eq!(game_master.move_finished_players(), 
+            &vec![
+                Player::new("yugi"),
+                Player::new("zyounochi"),
+            ]
+        );
+        assert_eq!(game_master.get_active_players().len(), 1);
+    }
+
 }
